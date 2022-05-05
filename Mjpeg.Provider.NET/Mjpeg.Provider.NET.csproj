@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	  <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
+	  <Authors>Kenneth Tang</Authors>
+	  <PackageProjectUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</PackageProjectUrl>
+  </PropertyGroup>
+  <ItemGroup>
+	  <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+	<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
+	<PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta14" />
+  </ItemGroup>
+</Project>
