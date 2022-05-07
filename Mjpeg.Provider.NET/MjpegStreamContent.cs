@@ -10,13 +10,14 @@ namespace Mjpeg.Provider.NET
     {
         private static readonly string boundary = "frame";
         private static readonly string contentType = "multipart/x-mixed-replace;boundary=" + boundary;
-        private static readonly byte[] newLine = Encoding.UTF8.GetBytes("\r\n");
+        private static readonly byte[] header = Encoding.UTF8.GetBytes($"\r\n--{boundary}\r\nContent-Type:image/jpeg\r\nContent-Length:");
+        private static readonly byte[] newLine = Encoding.UTF8.GetBytes("\r\n\r\n");
 
-        private readonly Action<MJPEGParameter, MjpegStreamContent> closeAction;
+        private readonly Action<MjpegParameter, MjpegStreamContent> closeAction;
         private readonly Func<CancellationToken, Task<ImageRawData>> onNextImage;
-        private readonly MJPEGParameter parameter;
+        private readonly MjpegParameter parameter;
 
-        public MjpegStreamContent(Action<MJPEGParameter, MjpegStreamContent> closeAction, MJPEGParameter parameter, Func<CancellationToken, Task<ImageRawData>> onNextImage)
+        public MjpegStreamContent(Action<MjpegParameter, MjpegStreamContent> closeAction, MjpegParameter parameter, Func<CancellationToken, Task<ImageRawData>> onNextImage)
             => (this.closeAction, this.parameter, this.onNextImage) = (closeAction, parameter, onNextImage);
 
         public async Task ExecuteResultAsync(ActionContext context)
@@ -32,12 +33,13 @@ namespace Mjpeg.Provider.NET
                 {
                     ImageRawData imageData = await onNextImage(cancellationToken);
 
-                    string header = $"--{boundary}\r\nContent-Type:image/jpeg\r\nContent-Length:{imageData.Length}\r\n\r\n";
-                    byte[] headerData = Encoding.UTF8.GetBytes(header);
-                    await outputStream.WriteAsync(headerData, 0, headerData.Length, cancellationToken);
-                    await outputStream.WriteAsync(imageData.RawData, 0, imageData.Length, cancellationToken);
-                    await outputStream.WriteAsync(newLine, 0, newLine.Length, cancellationToken);
+                    byte[] imageDataLength = Encoding.UTF8.GetBytes(imageData.Length.ToString());
 
+                    await outputStream.WriteAsync(header, cancellationToken);
+                    await outputStream.WriteAsync(imageDataLength, cancellationToken);
+                    await outputStream.WriteAsync(newLine, cancellationToken);
+                    await outputStream.WriteAsync(imageData.RawData, cancellationToken);
+                    
                     if (cancellationToken.IsCancellationRequested)
                         break;
                 }
