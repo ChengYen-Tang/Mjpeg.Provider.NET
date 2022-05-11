@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mjpeg.Provider.NET
@@ -48,17 +49,20 @@ namespace Mjpeg.Provider.NET
         {
             channels.TryGetValue(noSignalId, out var noSignalChannel);
             Channel channel = new() { Image = noSignalChannel.Image.Clone(process => { }) };
-            lock (noSignalChannel.ChannelLock)
-            {
-                IEnumerable<MjpegParameter> parameters = noSignalChannel.MJPEGParameters.Where(item => item.Id == Id).ToArray();
-                if (parameters.Any())
-                {
-                    foreach (MjpegParameter parameter in parameters)
-                        noSignalChannel.MJPEGParameters.Remove(parameter);
 
-                    channel.MJPEGParameters.AddRange(parameters);
-                }
+            bool lockTaken = false;
+            noSignalChannel.ChannelLock.Enter(ref lockTaken);
+            ICollection<MjpegParameter> parameters = noSignalChannel.MJPEGParameters.Where(item => item.Id == Id).ToArray();
+            if (parameters.Any())
+            {
+                foreach (MjpegParameter parameter in parameters)
+                    noSignalChannel.MJPEGParameters.Remove(parameter);
+
+                channel.MJPEGParameters.AddRange(parameters);
             }
+            if (lockTaken)
+                noSignalChannel.ChannelLock.Exit();
+
             return channels.TryAdd(Id, channel);
         }
 
@@ -104,9 +108,20 @@ namespace Mjpeg.Provider.NET
             int delayTime = 1000 / fps;
             MjpegStreamContent content = new(RemoveContent, parameter, async cancellationToken => {
                 await Task.Delay(delayTime, cancellationToken); // 2 second delay between image updates
-                if (jpegs.TryGetValue(parameter, out ImageRawData channelImage))
-                    return channelImage;
-                return noSignalImage;
+                ImageRawData channelImage = noSignalImage;
+                if (Contents.TryGetValue(parameter, out var streamContent))
+                {
+                    bool lockTacker = false;
+                    streamContent.ImageChangeLock.Enter(ref lockTacker);
+                    if (jpegs.TryGetValue(parameter, out ImageRawData channelImageByDict))
+                    {
+                        channelImageByDict.SetUsed();
+                        channelImage = channelImageByDict;
+                    }
+                    if (lockTacker)
+                    streamContent.ImageChangeLock.Exit();
+                }
+                return channelImage;
             });
 
             AddContents(parameter, content);
@@ -135,14 +150,17 @@ namespace Mjpeg.Provider.NET
             {
                 Image oldImage = channelImage.Image;
                 channelImage.Image = image;
-                lock (channelImage.ChannelLock)
+
+                bool lockTaken = false;
+                channelImage.ChannelLock.Enter(ref lockTaken);
+                Parallel.ForEach(channelImage.MJPEGParameters, (provider) =>
                 {
-                    Parallel.ForEach(channelImage.MJPEGParameters, (provider) =>
-                    {
-                        Contents.TryGetValue(provider, out var content);
-                        content.GenerateMJPEGAction.Invoke();
-                    });
-                }
+                    Contents.TryGetValue(provider, out var content);
+                    content.GenerateMJPEGAction.Invoke();
+                });
+                if (lockTaken)
+                    channelImage.ChannelLock.Exit();
+
                 oldImage.Dispose();
             }
         }
@@ -160,27 +178,29 @@ namespace Mjpeg.Provider.NET
                 channels.TryGetValue(parameter.Id, out channel);
             else
                 channels.TryGetValue(noSignalId, out channel);
-            lock (channel.ChannelLock)
+
+            bool lockTaken = false;
+            channel.ChannelLock.Enter(ref lockTaken);
+            if (!Contents.ContainsKey(parameter))
             {
-                if (!Contents.ContainsKey(parameter))
-                {
-                    jpegs.TryAdd(parameter, null);
-                    StreamContent streamContents = new();
-                    streamContents.GenerateMJPEGAction = new Action(() => GenerateMJPEG(parameter, streamContents.MemoryStreamManager, streamContents.ImageArrayPool));
-                    streamContents.Contents.Add(content);
-                    Contents.TryAdd(parameter, streamContents);
-                    channel.MJPEGParameters.Add(parameter);
-                    if (!isChannelExist)
-                        GenerateMJPEG(parameter, streamContents.MemoryStreamManager, streamContents.ImageArrayPool, false);
-                    else
-                        GenerateMJPEG(parameter, streamContents.MemoryStreamManager, streamContents.ImageArrayPool);
-                }
+                jpegs.TryAdd(parameter, null);
+                StreamContent streamContents = new();
+                streamContents.GenerateMJPEGAction = new Action(() => GenerateMJPEG(parameter, streamContents.MemoryStreamManager));
+                streamContents.Contents.Add(content);
+                Contents.TryAdd(parameter, streamContents);
+                channel.MJPEGParameters.Add(parameter);
+                if (!isChannelExist)
+                    GenerateMJPEG(parameter, streamContents.MemoryStreamManager, false);
                 else
-                {
-                    Contents.TryGetValue(parameter, out var streamContents);
-                    streamContents.Contents.Add(content);
-                }
+                    GenerateMJPEG(parameter, streamContents.MemoryStreamManager);
             }
+            else
+            {
+                Contents.TryGetValue(parameter, out var streamContents);
+                streamContents.Contents.Add(content);
+            }
+            if (lockTaken)
+                channel.ChannelLock.Exit();
         }
 
         /// <summary>
@@ -193,19 +213,21 @@ namespace Mjpeg.Provider.NET
             Channel channel;
             if (!channels.TryGetValue(parameter.Id, out channel))
                 channels.TryGetValue(noSignalId, out channel);
-            lock (channel.ChannelLock)
+
+            bool lockTaken = false;
+            channel.ChannelLock.Enter(ref lockTaken);
+            Contents.TryGetValue(parameter, out var streamContents);
+            streamContents.Contents.Remove(content);
+            if (!streamContents.Contents.Any())
             {
-                Contents.TryGetValue(parameter, out var streamContents);
-                streamContents.Contents.Remove(content);
-                if (!streamContents.Contents.Any())
-                {
-                    channel.MJPEGParameters.Remove(parameter);
-                    Contents.TryRemove(parameter, out _);
-                    jpegs.TryRemove(parameter, out ImageRawData image);
-                    if (image != null)
-                        streamContents.ImageArrayPool.Return(image.RawData);
-                }
+                channel.MJPEGParameters.Remove(parameter);
+                Contents.TryRemove(parameter, out _);
+                jpegs.TryRemove(parameter, out ImageRawData image);
+                if (image != null)
+                    image.Dispose();
             }
+            if (lockTaken)
+                channel.ChannelLock.Exit();
         }
 
         /// <summary>
@@ -213,9 +235,9 @@ namespace Mjpeg.Provider.NET
         /// </summary>
         /// <param name="parameter"></param>
         /// <param name="isValidStream"></param>
-        private void GenerateMJPEG(MjpegParameter parameter,
+        private async void GenerateMJPEG(MjpegParameter parameter,
             RecyclableMemoryStreamManager memoryStreamManager,
-            ArrayPool<byte> imageArrayPool, bool isValidStream = true)
+            bool isValidStream = true)
         {
             if (channels.TryGetValue(parameter.Id, out var channel))
             {
@@ -273,11 +295,18 @@ namespace Mjpeg.Provider.NET
                     }
                 }
 
-                if (jpegs.TryGetValue(parameter, out var imageByte))
+                if (Contents.TryGetValue(parameter, out StreamContent streamContent))
                 {
-                    jpegs.TryUpdate(parameter, ConvertToJpegArray(image, memoryStreamManager, imageArrayPool), imageByte);
-                    if (imageByte != null)
-                        imageArrayPool.Return(imageByte.RawData);
+                    bool lockTacker = false;
+                    streamContent.ImageChangeLock.Enter(ref lockTacker);
+                    if (jpegs.TryGetValue(parameter, out var imageData))
+                    {
+                        jpegs.TryUpdate(parameter, ConvertToJpegArray(image, memoryStreamManager), imageData);
+                        if (imageData != null)
+                            image.Dispose();
+                    }
+                    if (lockTacker)
+                        streamContent.ImageChangeLock.Exit();
                 }
                 image.Dispose();
             }
@@ -287,18 +316,15 @@ namespace Mjpeg.Provider.NET
         {
             using MemoryStream memoryStream = new();
             image.SaveAsJpeg(memoryStream);
-            return new(memoryStream.ToArray(), Convert.ToInt32(memoryStream.Length));
+            return new(memoryStream);
         }
 
-        private static ImageRawData ConvertToJpegArray(Image image, RecyclableMemoryStreamManager memoryStreamManager,
-            ArrayPool<byte> imageArrayPool)
+        private static ImageRawData ConvertToJpegArray(Image image, RecyclableMemoryStreamManager memoryStreamManager)
         {
             using MemoryStream memoryStream = memoryStreamManager.GetStream();
+            memoryStream.Seek(0, SeekOrigin.Begin);
             image.SaveAsJpeg(memoryStream);
-            memoryStream.Position = 0;
-            byte[] imageData = imageArrayPool.Rent(Convert.ToInt32(memoryStream.Length));
-            memoryStream.Read(imageData, 0, Convert.ToInt32(memoryStream.Length));
-            return new(imageData, Convert.ToInt32(memoryStream.Length));
+            return new(memoryStream);
         }
 
         private static Func<byte[], int, int, Image> SetLoadImageMethod(PixelFormat pixelFormat)
@@ -312,24 +338,23 @@ namespace Mjpeg.Provider.NET
     internal class Channel
     {
         public Channel()
-            => (ChannelLock, MJPEGParameters) = (new(), new());
+            => (ChannelLock, MJPEGParameters) = (new(false), new());
 
         public Image Image { get; set; }
         public IEnumerable<BoundingBoxInfo> BoundingBoxInfos { get; set; }
-        public object ChannelLock { get; set; }
+        public SpinLock ChannelLock { get; init; }
         public List<MjpegParameter> MJPEGParameters { get; set; }
     }
 
     internal class StreamContent
     {
         public StreamContent()
-            => (Contents, MemoryStreamManager, ImageArrayPool) = (new(), new(), ArrayPool<byte>.Create());
+            => (Contents, ImageChangeLock, MemoryStreamManager) = (new(), new(false), new());
 
         public List<MjpegStreamContent> Contents { get; }
+        public SpinLock ImageChangeLock { get; init; }
         public Action GenerateMJPEGAction { get; set; }
         public RecyclableMemoryStreamManager MemoryStreamManager { get; }
-        public ArrayPool<byte> ImageArrayPool { get; }
-
     }
 
     public enum PixelFormat

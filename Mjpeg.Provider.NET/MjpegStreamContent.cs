@@ -38,8 +38,8 @@ namespace Mjpeg.Provider.NET
                     await outputStream.WriteAsync(header, cancellationToken);
                     await outputStream.WriteAsync(imageDataLength, cancellationToken);
                     await outputStream.WriteAsync(newLine, cancellationToken);
-                    await outputStream.WriteAsync(imageData.RawData, cancellationToken);
-                    
+                    await outputStream.WriteAsync(imageData.Data, cancellationToken);
+                    imageData.SetNotUse();
                     if (cancellationToken.IsCancellationRequested)
                         break;
                 }

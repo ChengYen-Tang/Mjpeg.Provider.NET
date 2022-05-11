@@ -1,6 +1,7 @@
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Mjpeg.Provider.NET;
+using System.Buffers;
 
 namespace Mjpeg.Provider.Example
 {
@@ -53,7 +54,12 @@ namespace Mjpeg.Provider.Example
             {
                 bool hasFrame = capture.Read(frame);
                 if (hasFrame)
-                    provider.UpdateChannelImage(streamId, frame.GetRawData(), frame.Width, frame.Height);
+                {
+                    byte[] data = ArrayPool<byte>.Shared.Rent(frame.NumberOfChannels * frame.Width * frame.Height);
+                    frame.CopyTo(data);
+                    provider.UpdateChannelImage(streamId, data, frame.Width, frame.Height);
+                    ArrayPool<byte>.Shared.Return(data);
+                }
                 else
                     capture.Set(CapProp.PosAviRatio, 0);
             }
