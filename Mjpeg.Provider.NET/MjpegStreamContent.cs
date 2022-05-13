@@ -32,7 +32,6 @@ namespace Mjpeg.Provider.NET
                 while (true)
                 {
                     ImageRawData imageData = await onNextImage(cancellationToken);
-
                     byte[] imageDataLength = Encoding.UTF8.GetBytes(imageData.Length.ToString());
 
                     await outputStream.WriteAsync(header, cancellationToken);

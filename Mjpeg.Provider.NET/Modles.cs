@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.IO;
+using System;
 using System.IO;
 using System.Threading;
 
@@ -10,9 +11,9 @@ namespace Mjpeg.Provider.NET
     internal class ImageRawData : IDisposable
     {
         public int Length { get; init; }
-        public byte[] Data { get; init; }
+        public Memory<byte> Data { get; init; }
 
-        private readonly MemoryStream memoryStream;
+        public readonly MemoryStream memoryStream;
         private readonly SpinLock spinLock;
         private bool disposedValue;
         private volatile int usedCount;
@@ -23,7 +24,19 @@ namespace Mjpeg.Provider.NET
             int length = Convert.ToInt32(memoryStream.Length);
             this.memoryStream = memoryStream;
             Length = length;
-            Data = memoryStream.ToArray();
+            Data = new(memoryStream.GetBuffer(), 0, length);
+
+            spinLock = new SpinLock(false);
+            usedCount = 0;
+            isCalledDispose = false;
+        }
+
+        public ImageRawData(RecyclableMemoryStream memoryStream)
+        {
+            int length = Convert.ToInt32(memoryStream.Length);
+            this.memoryStream = memoryStream;
+            Length = length;
+            Data = memoryStream.GetMemory(length);
 
             spinLock = new SpinLock(false);
             usedCount = 0;

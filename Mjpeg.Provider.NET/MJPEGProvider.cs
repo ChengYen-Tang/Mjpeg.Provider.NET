@@ -303,7 +303,7 @@ namespace Mjpeg.Provider.NET
                     {
                         jpegs.TryUpdate(parameter, ConvertToJpegArray(image, memoryStreamManager), imageData);
                         if (imageData != null)
-                            image.Dispose();
+                            imageData.Dispose();
                     }
                     if (lockTacker)
                         streamContent.ImageChangeLock.Exit();
@@ -314,15 +314,16 @@ namespace Mjpeg.Provider.NET
 
         private static ImageRawData ConvertToJpegArray(Image image)
         {
-            using MemoryStream memoryStream = new();
+            MemoryStream memoryStream = new();
             image.SaveAsJpeg(memoryStream);
             return new(memoryStream);
         }
 
         private static ImageRawData ConvertToJpegArray(Image image, RecyclableMemoryStreamManager memoryStreamManager)
         {
-            using MemoryStream memoryStream = memoryStreamManager.GetStream();
+            MemoryStream memoryStream = memoryStreamManager.GetStream();
             memoryStream.Seek(0, SeekOrigin.Begin);
+            memoryStream.Position = 0;
             image.SaveAsJpeg(memoryStream);
             return new(memoryStream);
         }
