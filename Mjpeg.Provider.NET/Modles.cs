@@ -15,7 +15,7 @@ namespace Mjpeg.Provider.NET
 
         public readonly MemoryStream memoryStream;
         private readonly SpinLock spinLock;
-        private bool disposedValue;
+        private volatile bool disposedValue;
         private volatile int usedCount;
         private volatile bool isCalledDispose;
 
