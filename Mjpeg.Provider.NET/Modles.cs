@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Mjpeg.Provider.NET
 {
@@ -14,10 +15,8 @@ namespace Mjpeg.Provider.NET
         public Memory<byte> Data { get; init; }
 
         public readonly MemoryStream memoryStream;
-        private readonly SpinLock spinLock;
         private volatile bool disposedValue;
         private volatile int usedCount;
-        private volatile bool isCalledDispose;
 
         public ImageRawData(MemoryStream memoryStream)
         {
@@ -26,9 +25,7 @@ namespace Mjpeg.Provider.NET
             Length = length;
             Data = new(memoryStream.GetBuffer(), 0, length);
 
-            spinLock = new SpinLock(false);
             usedCount = 0;
-            isCalledDispose = false;
         }
 
         public ImageRawData(RecyclableMemoryStream memoryStream)
@@ -38,36 +35,19 @@ namespace Mjpeg.Provider.NET
             Length = length;
             Data = memoryStream.GetMemory(length);
 
-            spinLock = new SpinLock(false);
             usedCount = 0;
-            isCalledDispose = false;
         }
 
         public void SetUsed()
         {
-            bool lockTacker = false;
-            spinLock.Enter(ref lockTacker);
-            if (isCalledDispose)
+            if (disposedValue)
                 throw new InvalidOperationException("Object disposed");
             else
-                usedCount++;
-            if (lockTacker)
-                spinLock.Exit();
+                Interlocked.Increment(ref usedCount);
         }
 
         public void SetNotUse()
-        {
-            bool lockTacker = false;
-            spinLock.Enter(ref lockTacker);
-            if (usedCount > 0)
-            {
-                usedCount--;
-                if (usedCount == 0)
-                    Dispose();
-            }
-            if (lockTacker)
-                spinLock.Exit();
-        }
+            => Interlocked.Decrement(ref usedCount);
 
         protected virtual void Dispose(bool disposing)
         {
@@ -75,8 +55,11 @@ namespace Mjpeg.Provider.NET
             {
                 if (disposing)
                 {
-                    // TODO: 處置受控狀態 (受控物件)
-                    memoryStream.Dispose();
+                    Task.Run(() => {
+                        SpinWait.SpinUntil(() => usedCount == 0);
+                        // TODO: 處置受控狀態 (受控物件)
+                        memoryStream.Dispose();
+                    });
                 }
 
                 // TODO: 釋出非受控資源 (非受控物件) 並覆寫完成項
@@ -94,18 +77,9 @@ namespace Mjpeg.Provider.NET
 
         public void Dispose()
         {
-            bool lockTacker = false;
-            spinLock.Enter(ref lockTacker);
-            if (usedCount <= 0)
-            {
-                // 請勿變更此程式碼。請將清除程式碼放入 'Dispose(bool disposing)' 方法
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
-            }
-            else
-                isCalledDispose = true;
-            if (lockTacker)
-                spinLock.Exit();
+            // 請勿變更此程式碼。請將清除程式碼放入 'Dispose(bool disposing)' 方法
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 

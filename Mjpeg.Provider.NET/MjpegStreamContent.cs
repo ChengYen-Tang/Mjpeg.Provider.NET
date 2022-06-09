@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Buffers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,11 +34,11 @@ namespace Mjpeg.Provider.NET
                 {
                     ImageRawData imageData = await onNextImage(cancellationToken);
                     byte[] imageDataLength = Encoding.UTF8.GetBytes(imageData.Length.ToString());
-
-                    await outputStream.WriteAsync(header, cancellationToken);
-                    await outputStream.WriteAsync(imageDataLength, cancellationToken);
-                    await outputStream.WriteAsync(newLine, cancellationToken);
+                    int totalBufferLength = header.Length + imageDataLength.Length + newLine.Length;
+                    var buffer = Combine(header, imageDataLength, newLine, totalBufferLength);
+                    await outputStream.WriteAsync(buffer.data, cancellationToken);
                     await outputStream.WriteAsync(imageData.Data, cancellationToken);
+                    ArrayPool<byte>.Shared.Return(buffer.arrayPoolSpace);
                     imageData.SetNotUse();
                     if (cancellationToken.IsCancellationRequested)
                         break;
@@ -48,6 +49,16 @@ namespace Mjpeg.Provider.NET
             {
                 closeAction?.Invoke(parameter, this);
             }
+        }
+
+        // 合併3個 byte array 成一個 byte array
+        private static (Memory<byte> data, byte[] arrayPoolSpace) Combine(byte[] a, byte[] b, byte[] c, int totalLength)
+        {
+            byte[] ret = ArrayPool<byte>.Shared.Rent(totalLength);
+            Buffer.BlockCopy(a, 0, ret, 0, a.Length);
+            Buffer.BlockCopy(b, 0, ret, a.Length, b.Length);
+            Buffer.BlockCopy(c, 0, ret, a.Length + b.Length, c.Length);
+            return (ret.AsMemory(0, totalLength), ret);
         }
     }
 }
