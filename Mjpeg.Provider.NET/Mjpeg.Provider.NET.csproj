@@ -7,6 +7,8 @@
 	  <RepositoryUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</RepositoryUrl>
 	  <RepositoryType>git</RepositoryType>
 	  <PackageTags>MJPEG</PackageTags>
+	  <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
+	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
 	  <FrameworkReference Include="Microsoft.AspNetCore.App" />
