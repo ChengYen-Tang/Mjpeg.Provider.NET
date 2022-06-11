@@ -4,6 +4,9 @@
 	  <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
 	  <Authors>Kenneth Tang</Authors>
 	  <PackageProjectUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</PackageProjectUrl>
+	  <RepositoryUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</RepositoryUrl>
+	  <RepositoryType>git</RepositoryType>
+	  <PackageTags>MJPEG</PackageTags>
   </PropertyGroup>
   <ItemGroup>
 	  <FrameworkReference Include="Microsoft.AspNetCore.App" />

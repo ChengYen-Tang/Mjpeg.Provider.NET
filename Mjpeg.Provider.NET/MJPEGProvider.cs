@@ -155,8 +155,8 @@ namespace Mjpeg.Provider.NET
                 channelImage.ChannelLock.Enter(ref lockTaken);
                 Parallel.ForEach(channelImage.MJPEGParameters, (provider) =>
                 {
-                    Contents.TryGetValue(provider, out var content);
-                    content.GenerateMJPEGAction.Invoke();
+                    if (Contents.TryGetValue(provider, out var content))
+                        content.GenerateMJPEGAction.Invoke();
                 });
                 if (lockTaken)
                     channelImage.ChannelLock.Exit();
