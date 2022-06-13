@@ -1,16 +1,16 @@
-# Mjpeg.Provider.NET(中文|[English](./README-EN.md))
+# Mjpeg.Provider.NET([中文](./README.md)|English)
 [![NuGet (with prereleases)](https://img.shields.io/nuget/v/Mjpeg.Provider.NET)](https://www.nuget.org/packages/Mjpeg.Provider.NET)
 
-這個套件可以幫助我們將照片轉換成 MJPEG Stream，推送到瀏覽器或者應用程式
+This package can help us convert images to MJPEG Stream and push to browser or application.
 
-## 如何使用
-1. 相依性注入
+## How to use
+1. Dependency injection
     ```
-    # 參數1: 設定之後傳入影像資料的影像格式。
-    # 參數2: 必須放入一張預設圖片位置，如果使用者拉到不存在的串流會顯示這張圖片。
+    # Parameter 1: Set the image format of the image data.
+    # Parameter 2: The default picture position, if the user pulls a stream that does not exist, this picture will be displayed.
     services.AddAdvancedMJPEGProvider(PixelFormat.BGR, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images", "NoSignal.jpg"));
     ```
-1. 創建一個 Controller 給使用者拉串流
+1. Create a Controller to provide users with streaming
     ```
     [Route("api/[controller]")]
     [ApiController]
@@ -34,51 +34,51 @@
         public IActionResult Stream(Guid Id, int fps = 15, int longSize = default, bool drawBoundingBox = false)
             => provider.GetMJPEGActionResult(Id, fps, longSize, drawBoundingBox);
     ```
-1. 推串流
+1. Push stream
     ```
     private readonly AdvancedMJPEGProvider advancedMJPEGProvider;
 
-    a. 建立串流通道
-    # 參數1: 串流 Id
+    a. Create a streaming channel
+    # Parameter 1: Stream Id
     advancedMJPEGProvider.CreateChannel(Id);
 
-    b. 開始塞照片
-    # 參數1: 串流 Id
-    # 參數2: byte array，Pixel data
-    # 參數3: int，Width
-    # 參數4: int，Height
+    b. start inserting image
+    # Parameter 1: Stream Id
+    # Parameter 2: byte array, Pixel data
+    # Parameter 3: int, Width
+    # Parameter 4: int, Height
     advancedMJPEGProvider.UpdateChannelImage(Id, imageData, width, height);
 
-    c. 刪除串流通道
-    # 參數1: 串流 Id
+    c. delete streaming channel
+    # Parameter 1: Stream Id
     advancedMJPEGProvider.RemoveChannel(Id);
 
-    d. 將串流影像重設為預設影像
-    # 參數1: 串流 Id
+    d. Reset streaming image to default
+    # Parameter 1: Stream Id
     advancedMJPEGProvider.SetDefaultImage(Id);
     ```
-1. 設定 Bounding box
+1. Setting bounding box
     ```
-    # 參數1: 顏色: new Color(R, G, B) 填入 rgb 的值
-    # 參數2: 畫筆寬度
-    # 參數3: 線的座標集合: new PointF(X, Y)
+    # Parameter 1: Color: new Color(R, G, B), fill in the value of rgb
+    # parameter 2: brush width
+    # Parameter 3: The coordinate set of the line: new PointF(X, Y)
     public record BoundinxBox(Color Color, float Thickness, PointF[] Points);
 
-    b. 設定串流的 Bounding box
-    # 參數1: 串流 Id
-    # 參數2: IEnumerable<BoundingBox>，BoundingBox的集合
+    b. Set the Bounding box of streaming
+    # Parameter 1: Stream Id
+    # Parameter 2: IEnumerable<BoundingBox>, a collection of BoundingBox
     advancedMJPEGProvider.SetBoundingBox(Id, boundingBoxInfos);
     ```
 
-## [範例介紹](./Mjpeg.Provider.Example/)
-1. 使用 `Worker Service` 專案範本，建立專案
+## [Example introduction](./Mjpeg.Provider.Example/)
+1. Create a project using the `Worker Service` project template
     ![001](./Img/001.png)
-1. 安裝套件
+1. Installation package
     ```
     dotnet add package Microsoft.Extensions.Hosting
     dotnet add package Mjpeg.Provider.NET
     ```
-1. 建立 [Startup.cs](./Mjpeg.Provider.Example/Startup.cs)，並新增以下內容。(備註:請準備一張照片，用於連線的串流不存在時使用)
+1. Create [Startup.cs](./Mjpeg.Provider.Example/Startup.cs)，and add the following. (Note: Please prepare a photo for use when the connected stream does not exist)
     ```
     public class Startup
     {
@@ -117,7 +117,7 @@
         }
     }
     ```
-1. 新增 `Controllers`資料夾，並建立 [LiveViewController.cs](./Mjpeg.Provider.Example/Controllers/LiveViewController.cs)，然後新增以下內容。
+1. Add the `Controllers` folder, create [LiveViewController.cs](./Mjpeg.Provider.Example/Controllers/LiveViewController.cs), and add the following content.
     ```
     [Route("api/[controller]")]
     [ApiController]
@@ -142,5 +142,6 @@
             => provider.GetMJPEGActionResult(Id, fps, longSize, drawBoundingBox);
     }
     ```
-1. 在 [Worker.cs](./Mjpeg.Provider.Example/Worker.cs) 中插入圖片
-1. 執行專案，並使用瀏覽器播放串流 `https://localhost:5001/api/LiveView/Stream?Id=15d07bca-864a-48cc-9c48-6c1734e09f49&fps=15&longSize=720`
+1. Insert image in [Worker.cs](./Mjpeg.Provider.Example/Worker.cs)
+1. Run the project and use the browser to play the stream. `https://localhost:5001/api/LiveView/Stream?Id=15d07bca-864a-48cc-9c48-6c1734e09f49&fps=15&longSize=720`
+
