@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-	  <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
+	  <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
 	  <Authors>Kenneth Tang</Authors>
 	  <PackageProjectUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</PackageProjectUrl>
 	  <RepositoryUrl>https://github.com/ChengYen-Tang/Mjpeg.Provider.NET</RepositoryUrl>
@@ -9,12 +9,16 @@
 	  <PackageTags>MJPEG</PackageTags>
 	  <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
 	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
+	  <AssemblyVersion>1.1.0</AssemblyVersion>
+	  <FileVersion>1.1.0</FileVersion>
+	  <Version>1.1.0</Version>
+	  <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
 	  <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
-	<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.0" />
-	<PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta14" />
+	<PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.2.1" />
+	<PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta15" />
   </ItemGroup>
 </Project>
